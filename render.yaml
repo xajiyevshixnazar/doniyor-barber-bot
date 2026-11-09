@@ -6,6 +6,8 @@ services:
     buildCommand: npm install
     startCommand: node bot.js
     envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        value: 9237460654:AAFePOyWMn7np-zZ1nc6dfH-uISLeQNFk9Y
       - key: SUPABASE_URL
         value: https://gqcjrzakazuxaalhmbul.supabase.co
       - key: SUPABASE_ANON_KEY

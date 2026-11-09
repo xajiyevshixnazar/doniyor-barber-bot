@@ -7,7 +7,7 @@ import { getSupabaseBackendClient } from './server/supabaseBackend.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const TOKEN = '9237460654:AAFePOyWMn7np-zZ1nc6dfH-uISLeQNFk9Y';
+const TOKEN = process.env.TELEGRAM_BOT_TOKEN || '9237460654:AAFePOyWMn7np-zZ1nc6dfH-uISLeQNFk9Y';
 const BASE_URL = `https://api.telegram.org/bot${TOKEN}`;
 const DATA_DIR = path.join(__dirname, 'data');
 const BOOKINGS_FILE = path.join(DATA_DIR, 'bot_bookings.json');
