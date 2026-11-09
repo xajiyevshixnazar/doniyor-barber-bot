@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: doniyor-barber-bot
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node bot.js
+    envVars:
+      - key: SUPABASE_URL
+        value: https://gqcjrzakazuxaalhmbul.supabase.co
+      - key: SUPABASE_ANON_KEY
+        value: sb_publishable_nn59yAqfJstJc4wZ8Bx0XA_YwhT7om7
