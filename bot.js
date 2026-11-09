@@ -1984,32 +1984,63 @@ Sizning navbatingiz qabul qilindi.
 }
 
 // -------------------------------------------------------------
-// Cloud Hosting uchun doimiy HTTP Health-Check serveri (Port 3000)
+// Cloud Hosting uchun doimiy HTTP Server & Webhook (Port 3000)
 // -------------------------------------------------------------
-try {
-  const PORT = process.env.PORT || 3000;
-  const server = http.createServer((req, res) => {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ 
-      status: 'active', 
-      bot: '@DoniyorBarber_Bot',
-      database: 'Supabase PostgreSQL',
-      admins: ADMIN_IDS,
-      timestamp: new Date().toISOString()
-    }));
-  });
-  server.on('error', (err) => {
-    console.warn('Health server notice:', err.message);
-  });
-  server.listen(PORT, () => {
-    console.log(`🌐 Bot Health Server port ${PORT} da faol (Render/Railway 24/7 hosting uchun tayyor)`);
-  });
-} catch (e) {
-  console.warn('Health server info:', e.message);
-}
+const PORT = process.env.PORT || 3000;
+const RENDER_PUBLIC_URL = process.env.RENDER_EXTERNAL_URL || 'https://doniyor-barber-bot.onrender.com';
+
+const server = http.createServer(async (req, res) => {
+  // 1. Telegram Webhook (POST /webhook yoki POST /)
+  if (req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', async () => {
+      try {
+        if (body) {
+          const update = JSON.parse(body);
+          if (update.message) {
+            handleMessage(update.message).catch(e => console.error('Message error:', e));
+          } else if (update.callback_query) {
+            handleCallbackQuery(update.callback_query).catch(e => console.error('Callback error:', e));
+          }
+        }
+      } catch (e) {
+        console.error('Webhook parse error:', e.message);
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+    });
+    return;
+  }
+
+  // 2. Health check (GET /)
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ 
+    status: 'active', 
+    bot: '@DoniyorBarber_Bot',
+    database: 'Supabase PostgreSQL',
+    admins: ADMIN_IDS,
+    timestamp: new Date().toISOString()
+  }));
+});
+
+server.on('error', (err) => {
+  console.warn('Health server notice:', err.message);
+});
+
+server.listen(PORT, () => {
+  console.log(`🌐 Bot Server port ${PORT} da faol (Render/Railway 24/7 hosting uchun tayyor)`);
+});
+
+// Self-ping to keep Render free tier awake 24/7 (har 10 daqiqada o'zini ping qilib uyg'otib turadi)
+setInterval(() => {
+  fetch(RENDER_PUBLIC_URL)
+    .then(r => console.log(`[Keep-Alive Ping] Status: ${r.status}`))
+    .catch(err => console.warn('[Keep-Alive Ping Error]:', err.message));
+}, 10 * 60 * 1000);
 
 // -------------------------------------------------------------
-// Telegram Long Polling Engine
+// Telegram Long Polling Engine (Lokal rejim uchun zaxira)
 // -------------------------------------------------------------
 let lastUpdateId = 0;
 
@@ -2160,4 +2191,20 @@ console.log('👑 Admin Telegram ID lari: 835865320, 5236823441');
 console.log('⚡ Ma’lumotlar bazasi: Supabase (PostgreSQL)');
 console.log('====================================================');
 
-pollUpdates();
+// Webhook yoki Long Polling tanlash
+const IS_RENDER = Boolean(process.env.RENDER || process.env.RENDER_EXTERNAL_URL);
+
+if (IS_RENDER) {
+  const webhookUrl = `${RENDER_PUBLIC_URL.replace(/\/$/, '')}/webhook`;
+  console.log(`🚀 Render Cloud: Webhook rejimida ishlaydi -> ${webhookUrl}`);
+  callApi('setWebhook', { url: webhookUrl }).then(res => {
+    console.log('Telegram Webhook muvaffaqiyatli ulandi:', res);
+  }).catch(e => {
+    console.error('Webhook error:', e);
+  });
+} else {
+  console.log('🔄 Lokal rejim: Long Polling ishlaydi...');
+  callApi('deleteWebhook').then(() => {
+    pollUpdates();
+  });
+}
